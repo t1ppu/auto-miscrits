@@ -13,6 +13,9 @@ import win32api
 import win32con
 from ctypes import windll
 import win32ui
+import cv2
+from collections import Counter
+
 
 pyautogui.FAILSAFE = False
 
@@ -22,16 +25,17 @@ plat2 = True
 plat3 = True
 plat4 = True
 c1, c2 = 961, 506 # use mouse.py to get coordinates of the target search object
-miscrits_to_avoid = {"Quebble"} 
+miscrits_to_avoid = {} 
+double_spawn = True
 time_gap = 5
 
 # List of common Miscrits to skip
-common_miscrits = {"Peekly", "Owlie", "Owlle", "Fells", "Felis", "Flue", "Whik", "Flowerplller", "Flowerpiller", "Prawnja", "Flurfy", "Sparkupine", "Hydroseal", "Cubsprout", "Cubspr", "Flowerp", "Futy", "Flurty", "Whlk", "Sparkuplne",  "Flamellng", "Lumera", "Squlrmle", "Snortus", "Qulrk", "Snatcher", "Elefauna", "Nessy", "Hotfoot", 'Steamguln', 'Twlggum', "Squlbee", 'Crlckln', "Shellbee", "Vhlsp", "Statlkat", "Bubbles", "Arla", "Cerber", "Raldio", "Tongutall", "Frostmlte", "Craggy", "Croaky","Nero", "Sparkspeck", "Raldlo", "Ratlery", "Railery", "Sllthero", "Lavarllla", "Auger", "Vexie", "Vexle", "Jellyshock", "Sparkslug", "Hlppoke", "Quebble", "Tectonyx", "Hawkal", "Dlgsy", "Weevern", "Orca", "Leggy", "Blub", "Zaptor", "Spark", "Echlno", "Grub", "Wavesllng", "Jack", "Nlbbles", "Arlgato", "Dlgsy", "Nlbbles", "Nibbles", "Craggy", "Hottoot", "Rallery", "Bludger", "Plllblaze" }
+common_miscrits = {"Peekly", "Owlie", "Owlle", "Fells", "Felis", "Flue", "Whik", "Flowerplller", "Flowerpiller", "Prawnja", "Flurfy", "Sparkupine", "Hydroseal", "Cubsprout", "Cubspr", "Flowerp", "Futy", "Flurty", "Whlk", "Sparkuplne",  "Flamellng", "Lumera", "Squlrmle", "Snortus", "Qulrk", "Snatcher", "Elefauna", "Nessy", "Hotfoot", 'Steamguln', 'Twlggum', "Squlbee", 'Crlckln', "Shellbee", "Vhlsp", "Statlkat", "Bubbles", "Arla", "Cerber", "Raldio", "Tongutall", "Frostmlte", "Craggy", "Croaky","Nero", "Sparkspeck", "Raldlo", "Ratlery", "Railery", "Sllthero", "Lavarllla", "Auger", "Vexie", "Vexle", "Jellyshock", "Sparkslug", "Hlppoke", "Quebble", "Tectonyx", "Hawkal", "Dlgsy", "Weevern", "Orca", "Leggy", "Blub", "Zaptor", "Spark", "Echlno", "Grub", "Wavesllng", "Jack", "Nlbbles", "Arlgato", "Dlgsy", "Nlbbles", "Nibbles", "Craggy", "Hottoot", "Rallery", "Bludger", "Plllblaze","Splnnerette", "Breezvcheeks", "Drlll", "Klloray", "Mumbah", "Equest" }
 
-rare = {"3","3h", "3l", "Dark", "klloray", "kiloray", "Bll", "Blighted Cubsprout", "Bllghted cubsprout", "Bllghfed cubsprout", "Blighted cubzprout", "Bllghted cubzsprout", "3hahted cubarett", "3hhted cubarett", "Freedom", "Free", "Papa", "Flender", "Deflllo", "Kelpa", "Dorux", "Thundercracker", "Thunder", "Kelpe", "Foll", "Meme", "Gog", "Foil", "Tullp", "Derk", "Llght", "Light", "Licht", "Mama", "Nana", "Blazertooth", "Blaze", "Flarlng", "Dorux", "Keeper", "Gemlx" }
+rare = {"3","3h", "3l", "Dark", "Bll", "Blighted Cubsprout", "Bllghted cubsprout", "Bllghfed cubsprout", "Blighted cubzprout", "Bllghted cubzsprout", "3hahted cubarett", "3hhted cubarett", "Freedom", "Free", "Papa", "Flender", "Deflllo", "Kelpa", "Dorux", "Thundercracker", "Thunder", "Kelpe", "Foll", "Meme", "Gog", "Foil", "Tullp", "Derk", "Llght", "Light", "Licht", "Mama", "Nana", "Blazertooth", "Blaze", "Flarlng", "Dorux", "Keeper", "Gemlx", "Flaring", "Nero" }
 
 
-ready = {"READYOTRAIN", "RBADYTOTRAIN", "READYIOTRAIN", " READYOTRAIN", " RBADYTOTRAIN", " READYIOTRAIN", "READYTOTRAIN", " READYTOTRAIN"}
+ready = {"READYOTRAIN", "RBADYTOTRAIN", "READYIOTRAIN", " READYOTRAIN", " RBADYTOTRAIN", " READYIOTRAIN", "READYTOTRAIN", " READYTOTRAIN", "RDADYTOTRAIN", "RNODYOtroM"}
 ############################### 
 
 # Identify the target window by title
@@ -42,7 +46,7 @@ if not hwnd:
     print(f"No window found with title '{window_title}'")
     exit()
     
-# Pushover setup
+# Pushover setup if you want custom notification via Pushover mobile app (one time payment required)
 pushover_token = ''  # Replace with your Pushover app token
 pushover_user_key = ''  # Replace with your Pushover user key
 
@@ -55,10 +59,48 @@ def detect_text(r):
     image = pyautogui.screenshot(region=r)
     image = ImageOps.grayscale(image)
     image = image.filter(ImageFilter.SHARPEN)
+    # image.show()
     image_np = np.array(image)
     result = reader.readtext(image_np)
     detected_text = ' '.join([text[1] for text in result]).strip()
     return detected_text
+
+def get_majority_color_from_image(image):
+    # Convert the input image (PIL format) to an OpenCV image and to HSV color space
+    hsv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2HSV)
+    
+    # Reshape the image to a 2D array of pixels
+    pixels = hsv_image.reshape(-1, 3)
+    
+    # Convert the pixel array to a list of tuples (H, S, V)
+    pixels_list = [tuple(pixel) for pixel in pixels]
+    
+    # Count the occurrence of each color
+    color_counter = Counter(pixels_list)
+    
+    # Get the most common color
+    majority_color = color_counter.most_common(1)[0][0]
+    
+    return majority_color
+
+# Compare the majority colors
+def compare_colors(color1, color2, tolerance=10):
+    # Check if the color values are within the tolerance for each component (H, S, V)
+    return all(abs(c1 - c2) <= tolerance for c1, c2 in zip(color1, color2))
+  
+def check_rating():
+  majority_color_s = (11, 255, 212)
+  # Take the screenshot using PyAutoGUI
+  r = (1124, 65, 20, 20)  # The region of the rating
+  rating_image = pyautogui.screenshot(region=r)
+
+  # Get the majority color of the input image
+  majority_color_input = get_majority_color_from_image(rating_image)
+  print("Color: " ,majority_color_input)
+  if compare_colors(majority_color_input, majority_color_s):
+    return True
+  else:
+    return False
 
 # Screenshot the target window
 def screenshot():
@@ -164,28 +206,54 @@ def train_miscrit(n):
     ######## new move or evolution or both
     detected_text = detect_text((910,621,102,27))
     print("new move? ->" + detected_text)
-    if detected_text == "Contlnue" or detected_text == "ontive" or detected_text == "Sontlua":
+    if detected_text == "Contlnue" or detected_text == "ontive" or detected_text == "Sontlua" or detected_text == "@ontlug" or detected_text == "gontinvg" or detected_text == "Continug" or detected_text == "@ontinua":
       print("new move")
       pyautogui.click(x=950, y=632)
-      time.sleep(1)
+      time.sleep(2)
     #### evolution
     detected_text = detect_text((908,750,102,27))
     print("new evo? ->" + detected_text)
-    if detected_text == "Contlnue" or detected_text == "@ontlug" or detected_text == "Eontinue":
+    if detected_text == "Contlnue" or detected_text == "@ontlug" or detected_text == "Eontinue" or detected_text == "Continug" or detected_text == "continue":
       print("evolution")
       pyautogui.click(x=950, y=762)
-      time.sleep(1)
-    #### skip if level up:
-    detected_text = detect_text((929, 709, 64, 20))
-    print("level up? ->" + detected_text)
-    if detected_text == "Sklp" or detected_text == "sklp" or detected_text == "Skip" or detected_text == "Skp":
-      print("level up")
-      pyautogui.click(x=960, y=717)
-      time.sleep(1)
+      time.sleep(2)
+      #### skip if level up:
+      detected_text = detect_text((929, 709, 64, 20))
+      print("level up? ->" + detected_text)
+      if detected_text == "Sklp" or detected_text == "sklp" or detected_text == "Skip" or detected_text == "Skp" or detected_text == "Skb":
+        print("level up")
+        pyautogui.click(x=960, y=717)
+        time.sleep(2)
     ####### close train menu
     pyautogui.click(x=1313, y=225)
     print("CLOSED TRAIN MENU")
     time.sleep(1)
+
+def check_rare(d_text):
+  b = False
+  for r in rare:
+          if d_text.startswith(r):
+            # rt = check_rating()
+            # if not rt:
+            #   continue
+            # f = True
+            print(f"Rating: Miscrit: {r}. Sending notification.")
+            # Play a sound
+            winsound.Beep(1000, 1500)  # Frequency in Hz, Duration in milliseconds
+            # Send a desktop notification
+            notification.notify(
+                title="Rare Miscrit Detected!",
+                message=f"You encountered a rare Miscrit: {r}.",
+                timeout=10  # Duration the notification stays on the screen (in seconds)
+            )
+            send_pushover_notification("Rare Miscrit Detected!", f"Rating: Miscrit: {r}.")
+            print("User notified")
+            input("Press Enter to continue...")
+            time.sleep(3)
+            b = True
+            break
+  return b
+          
 
 ## AFTER THE BATTLE STARTS
 # Define the region where the Miscrit's name appears 
@@ -196,62 +264,49 @@ name_left, name_top, name_right, name_bottom = 1169, 68, 79, 20
 exit_x, exit_y = 606, 865  # Example coordinates
 
 count = 0
+
 # Start an infinite loop to continuously check the screen
 while True:
-    f = False
+    # f = False
     g = False
-    av = False
+    # av = False
     pyautogui.click(x=c1, y=c2)
     # click_in_window(hwnd, x=974, y=435)
     print("Searching...")
     time.sleep(6.5)
+    
     # Capture the region where the Miscrit's name appears
     name_region = (name_left, name_top, name_right, name_bottom)
-    name_image = pyautogui.screenshot(region=name_region)
-    # name_image.show()
-    # print(name_image)
-    name_image = ImageOps.grayscale(name_image)
-    name_image = name_image.filter(ImageFilter.SHARPEN)
-    name_image_np = np.array(name_image)
-    # name_image.save(f'C:/Users/kolli/OneDrive/Desktop/finds/miscrit{count}.png')
+    # name_image = pyautogui.screenshot(region=name_region)
+    # # name_image.show()
+    # # print(name_image)
+    # name_image = ImageOps.grayscale(name_image)
+    # name_image = name_image.filter(ImageFilter.SHARPEN)
+    # name_image_np = np.array(name_image)
+    # # name_image.save(f'C:/Users/kolli/OneDrive/Desktop/finds/miscrit{count}.png')
     
-    # Use easyocr to extract the text from the name region
-    result = reader.readtext(name_image_np)
-    detected_text = ' '.join([text[1] for text in result]).strip()
-    print(detected_text)
+    # # Use easyocr to extract the text from the name region
+    # result = reader.readtext(name_image_np)
+    # detected_text = ' '.join([text[1] for text in result]).strip()
+    # print(detected_text)
+    detected_text = detect_text(name_region)
     
-    for r in rare:
-          if r in detected_text:
-            f = True
-            print(f"Detected rare Miscrit: {r}. Sending notification.")
-            # Play a sound
-            winsound.Beep(1000, 1500)  # Frequency in Hz, Duration in milliseconds
-            # Send a desktop notification
-            notification.notify(
-                title="Rare Miscrit Detected!",
-                message=f"You encountered a rare Miscrit: {r}.",
-                timeout=10  # Duration the notification stays on the screen (in seconds)
-            )
-            send_pushover_notification("Rare Miscrit Detected!", f"You encountered a rare Miscrit: {r}.")
-            print("User notified")
-            input("Press Enter to continue...")
-            time.sleep(3)
-            break
-    # Check if the detected Miscrit is common
-        # Check if the detected Miscrit is the rare one
-    for mi in miscrits_to_avoid:
-      if mi in detected_text:
-        av = True
-        print(f"Detected common Miscrit to avoid: {mi}. Exiting the battle.")
-        # click_in_window(hwnd, x=exit_x, y=exit_y)
-        pyautogui.click(x=exit_x, y=exit_y)
-        time.sleep(3.5)
-        print("Closing")
-        # click_in_window(hwnd, x=963, y=753)
-        pyautogui.click(x=963, y=753)
-        break
+    if check_rare(detected_text):
+      break
+    ########################################################## 
+    # for mi in miscrits_to_avoid:
+    #   if mi in detected_text:
+    #     av = True
+    #     print(f"Detected common Miscrit to avoid: {mi}. Exiting the battle.")
+    #     # click_in_window(hwnd, x=exit_x, y=exit_y)
+    #     pyautogui.click(x=exit_x, y=exit_y)
+    #     time.sleep(3.5)
+    #     print("Closing")
+    #     # click_in_window(hwnd, x=963, y=753)
+    #     pyautogui.click(x=963, y=753)
+    #     break
         
-    if not f and not av:
+    if True: #not f and not av:
       for miscrit in common_miscrits:
           if miscrit in detected_text:
               g = True
@@ -266,21 +321,27 @@ while True:
               time.sleep(12)
               while True:     ### attack until battle ends
                 detected_text1 = detect_text(name_region)
-                if detected_text1 in common_miscrits:
+                if detected_text1 == detected_text:
                   pyautogui.click(x=710, y=955) # 1st slot attack
                   # pyautogui.click(x=882, y=955) # 2st slot
                   # pyautogui.click(x=1050, y=955) # 3st slot
                   # pyautogui.click(x=1200, y=955) # 4st slot
                   time.sleep(10)
+                elif check_rare(detected_text1):
+                  break
                 else:
                   break
               
               ######## check if miscrit ready to train
               
               w = detect_text((660, 438, 103, 21))    ## 1st miscrit
+              print("w=", w)
               x = detect_text((810, 440, 103, 21))    ## 2nd miscrit
+              print("x=", x)
               y = detect_text((673, 535, 103, 21))    ## 3rd miscrit
+              print("y=", y)
               z = detect_text((817, 533, 103, 21))    ## 4th miscrit
+              print("z=", z)
               print("Battle end. Closing")
               # click_in_window(hwnd, x=965, y=756) #close
               pyautogui.click(x=965, y=756)
@@ -296,7 +357,7 @@ while True:
               time.sleep(time_gap)
               break
             
-    if not g and not f and not av:
+    if not g: #and not f and not av:
       detected_text = detect_text((1652, 75, 100, 30))
       print("heal?", detected_text)
       if "Heal" in detected_text:
@@ -309,7 +370,7 @@ while True:
         # Send a desktop notification
         notification.notify(
             title="Found something",
-            message=f"zzzz",
+            message=f"....",
             timeout=10  # Duration the notification stays on the screen (in seconds)
         )
         send_pushover_notification("Found something", f"zzzz")
